@@ -20,10 +20,17 @@ def sepia(src_image):
     sepia_img = np.array(sepia, dtype=np.uint8)
    
     return sepia_img
+def applyInvert(src_image):
+    invert = cv2.bitwise_not(src_image)
+    return invert
     
-image = cv2.imread('E:\Git-hab\Image_Processing_GUI\index2.jpg')
-image2 = sepia(image)
-cv2.imshow('', image2)
+    
+image = cv2.imread('E:\Git-hab\Image_Processing_GUI\ohm1.jpg')
+
+image2invert = applyInvert(image)
+
+
+cv2.imshow('invert', image2invert)
 
 cv2.waitKey()&0xFF
 cv2.destroyAllWindows()
