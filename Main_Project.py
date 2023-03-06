@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
+from tkinter import *
 from pathlib import Path
 
 import cv2
@@ -12,7 +13,6 @@ from PIL import ImageTk,Image
 global filePath
 global G_sepia_img, G_edge_image
 
-global G_rotate_img
 filePath = ''
 
 def choose_img():
@@ -26,7 +26,7 @@ def choose_img():
     path_label = tk.Label(first_frame,text='Path: ' + filePath).grid(row=2,column=1, pady=10)
    
 def image_console():
-    global G_rotate_img,filePath
+    global G_rotate_img, filePath , img_onshow
 
     if not filePath:
         messagebox.showwarning("Error", "No image selected!")
@@ -37,7 +37,7 @@ def image_console():
     #************************************************************************************
     edit_img = tk.Toplevel()
     edit_img.title('Image Editor') 
-
+    
     #Create Frame
     button_frame = tk.Frame(edit_img)
     button_frame.pack()
@@ -45,11 +45,11 @@ def image_console():
     photo_frame  = tk.Frame(edit_img)
     photo_frame.pack()
 
-    #Show image
+    #Show Original Image 
     img   = Image.open(filePath) #imread
-    photo = ImageTk.PhotoImage(img) #Convert imager to Tk
-    tk.Label(photo_frame, image=photo).grid(row=0,column=0)
-
+    cvt_photo = ImageTk.PhotoImage(img) #Convert img to Tk
+    img_onshow = tk.Label(photo_frame, image=cvt_photo).grid(row=0,column=0)
+    
     #Create Button
     rotate_cw_icon        = ImageTk.PhotoImage(Image.open('./img_res/rotate.png').resize((25,25)))
     rotate_countercw_icon = ImageTk.PhotoImage(Image.open('./img_res/counter-rotate.png').resize((25,25)))
@@ -61,7 +61,10 @@ def image_console():
     sepia_btn  = tk.Button(button_frame, text="Sepia",command=lambda: sepia(photo_frame)) .grid(row=0, column=3, padx=5)
     invert_btn = tk.Button(button_frame, text="Ghost",command=lambda: invert(photo_frame)).grid(row=0, column=4, padx=5)
     red_only_btn = tk.Button(button_frame, text="RedOnly",command=lambda: red_filter(photo_frame)).grid(row=0, column=5, padx=5)
-    
+
+    #btn = tk.Button(button_frame, text="Reset",command=lambda: ).grid(row=0, column=6, padx=5)
+
+
     # Set Rotage Image to Global Stage
     G_rotate_img = cv2.cvtColor(cv2.imread(filePath), cv2.COLOR_BGR2RGB)
     edit_img.mainloop()
@@ -75,11 +78,12 @@ def rotate_img(frame, isCounterClockwise):
         G_rotate_img = cv2.rotate(G_rotate_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
     else:
         G_rotate_img = cv2.rotate(G_rotate_img, cv2.ROTATE_90_CLOCKWISE)
+        
 
     roImg = Image.fromarray(G_rotate_img)
     roImg = ImageTk.PhotoImage(roImg)
 
-    tk.Label(frame, image=roImg).grid(row=1,column=0)
+    tk.Label(frame, image=roImg).grid(row=0,column=0)
 
 #Fucntion about All Filter
 #*******************************************************************
@@ -115,20 +119,20 @@ def red_filter(frame):
     red_filter_img = ImageTk.PhotoImage(red_filter_img) 
 
     #Displays images as specified position.
-    tk.Label(frame, image=red_filter_img).grid(row=0,column=1)
+    tk.Label(frame, image=red_filter_img).grid(row=0,column=0)
 
 def invert(frame):
     global filePath, invert_img
 
     img = cv2.imread(filePath)
-    #img_gray   = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    invert_img = cv2.bitwise_not(img)
+    img_gray   = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    invert_img = cv2.bitwise_not(img_gray)
     
     invert_img = Image.fromarray(invert_img)
     invert_img = ImageTk.PhotoImage(invert_img)
 
     #Displays images as specified position.
-    tk.Label(frame, image=invert_img).grid(row=0,column=1)
+    tk.Label(frame, image=invert_img).grid(row=0,column=0)
 
 def sepia(frame):
     global filePath, sepia_img
@@ -154,7 +158,7 @@ def sepia(frame):
     sepia_img = Image.fromarray(sepia_img)
     sepia_img = ImageTk.PhotoImage(sepia_img)
 
-    tk.Label(frame, image=sepia_img).grid(row=0,column=1)
+    tk.Label(frame, image=sepia_img).grid(row=0,column=0)
 
 def edge(frame):
     global filePath, edge_img
@@ -168,7 +172,7 @@ def edge(frame):
     edge_img = ImageTk.PhotoImage(edge_img)
 
     #Displays images as specified position.
-    tk.Label(frame, image=edge_img).grid(row=0,column=1)
+    tk.Label(frame, image=edge_img).grid(row=0,column=0)
 #*******************************************************************
 
 #Main 

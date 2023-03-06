@@ -3,7 +3,7 @@ import cv2 as cv
 import numpy as np
 
 #read the image
-img = cv.imread("E:\Git-hab\Image_Processing_GUI\ohm2.jpg")
+img = cv.imread("E:\Git-hab\Image_Processing_GUI\ebocchi.png")
 #convert the BGR image to HSV colour space
 hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 #obtain the grayscale image of the original image
