@@ -5,12 +5,13 @@ from tkinter import *
 from pathlib import Path
 
 import cv2
+import os
 import numpy as np
 
 from PIL import ImageTk,Image
 
 
-global filePath, G_rotation_angle, G_filter_state
+global filePath, G_rotation_angle, G_filter_state, photoImage, state_img
 
 filePath = ''
 
@@ -22,10 +23,10 @@ def choose_img():
     FILE = Path(__file__).resolve()
     filePath = filedialog.askopenfilename(initialdir = FILE.parent) 
 
-    path_label = tk.Label(first_frame,text='Path: ' + filePath).grid(row=2,column=1, pady=10)
+    tk.Label(first_frame,text='Path: ' + filePath).grid(row=2,column=1, pady=10)
    
 def image_console():
-    global G_rotation_angle, filePath , img_onshow, G_filter_state
+    global G_rotation_angle, filePath , G_filter_state
 
     if not filePath:
         messagebox.showwarning("Error", "No image selected!")
@@ -36,33 +37,37 @@ def image_console():
     #************************************************************************************
     edit_img = tk.Toplevel()
     edit_img.title('Image Editor') 
+    edit_img.geometry("1200x800")
     
     #Create Frame
     button_frame = tk.Frame(edit_img)
     button_frame.pack()
 
     photo_frame  = tk.Frame(edit_img)
-    photo_frame.pack()
+    photo_frame.pack(expand=True, pady=25)
+ 
+    # store array image (for openCV)
+    array_img = cv2.imread(filePath) # got array of image
 
-    #Show Original Image 
-    img   = Image.open(filePath) #imread
-    cvt_photo = ImageTk.PhotoImage(img) #Convert img to Tk
-    img_onshow = tk.Label(photo_frame, image=cvt_photo).grid(row=0,column=0)
-    
-    #Create Button
+    # Show Original Image
+    OriginImg = cv2.cvtColor(array_img, cv2.COLOR_BGR2RGB)
+    showImg(OriginImg, photo_frame)
+
+    # Create Button
     rotate_cw_icon        = ImageTk.PhotoImage(Image.open('./img_res/rotate.png').resize((25,25)))
     rotate_countercw_icon = ImageTk.PhotoImage(Image.open('./img_res/counter-rotate.png').resize((25,25)))
 
-    rotate_ccw = tk.Button(button_frame,image=rotate_countercw_icon, command=lambda: rotate_img(photo_frame, True)) .grid(row=0,column=0, padx=5)
-    rotate_cw  = tk.Button(button_frame,image=rotate_cw_icon,        command=lambda: rotate_img(photo_frame, False)).grid(row=0,column=1, padx=5)
+    tk.Button(button_frame,image=rotate_countercw_icon, command=lambda: rotate_img(array_img, photo_frame, True)) .grid(row=0,column=0, padx=5)
+    tk.Button(button_frame,image=rotate_cw_icon,        command=lambda: rotate_img(array_img, photo_frame, False)).grid(row=0,column=1, padx=5)
     
-    edge_btn   = tk.Button(button_frame, text="Edge", command=lambda: edge(photo_frame))  .grid(row=0, column=2, padx=5)
-    sepia_btn  = tk.Button(button_frame, text="Sepia",command=lambda: sepia(photo_frame)) .grid(row=0, column=3, padx=5)
-    invert_btn = tk.Button(button_frame, text="Ghost",command=lambda: invert(photo_frame)).grid(row=0, column=4, padx=5)
-    red_only_btn = tk.Button(button_frame, text="RedOnly",command=lambda: red_filter(photo_frame)).grid(row=0, column=5, padx=5)
+    tk.Button(button_frame, text="Origin", command=lambda: originImg(OriginImg, photo_frame))  .grid(row=0, column=2, padx=5)
+    tk.Button(button_frame, text="Edge", command=lambda: edge(array_img, photo_frame))  .grid(row=0, column=3, padx=5)
+    tk.Button(button_frame, text="Sepia",command=lambda: sepia(array_img, photo_frame)) .grid(row=0, column=4, padx=5)
+    tk.Button(button_frame, text="Ghost",command=lambda: invert(array_img, photo_frame)).grid(row=0, column=5, padx=5)
+    tk.Button(button_frame, text="RedOnly",command=lambda: red_filter(array_img, photo_frame)).grid(row=0, column=6, padx=5)
 
-    #btn = tk.Button(button_frame, text="Reset",command=lambda: ).grid(row=0, column=6, padx=5)
-
+    # Save image button 
+    tk.Button(button_frame, text="Save", command=lambda: saveImg()).grid(row=1, column=3)
 
     # Set Rotage Image to Global State
     G_rotation_angle = 0
@@ -72,12 +77,43 @@ def image_console():
     edit_img.mainloop()
     #************************************************************************************
 
-def rotate_img(frame, isCounterClockwise):
+def showImg(img, frame):
+    global photoImage, state_img
+
+    resize_img = resizeImg(img)
+    image = Image.fromarray(resize_img)
+    photoImage = ImageTk.PhotoImage(image) 
+
+    # set Stage image for save method
+    state_img = img
+
+    #Displays images as specified position.
+    tk.Label(frame, image=photoImage).grid(row=0,column=0)
+
+def resizeImg(img):
+
+    # default scale_percent
+    scale_percent = 100
+
+    # resize condition *(sharp[0] = height, sharp[1] = weight)*
+    if (img.shape[1] >= 2500 or img.shape[0] >= 2500):
+        scale_percent = 25
+    elif (img.shape[1] >= 1300 or img.shape[0] >= 900):
+        scale_percent = 50
+
+    width = int(img.shape[1] * scale_percent / 100)
+    height = int(img.shape[0] * scale_percent / 100)
+    dim = (width, height)
   
-    global G_rotation_angle, filePath
+    # resize image
+    return cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+
+def rotate_img(img, frame, isCounterClockwise):
+  
+    global G_rotation_angle
     
-    #read the image
-    rotate_img = cv2.imread(filePath)
+    # Check filter state
+    rotate_img = checkFilterState(img)
 
     if isCounterClockwise == True:
         if G_rotation_angle == 0:
@@ -111,21 +147,59 @@ def rotate_img(frame, isCounterClockwise):
         elif G_rotation_angle == 270:
             G_rotation_angle = 0
     
-    cv2.imshow('', rotate_img)
+    rgbImg = cv2.cvtColor(rotate_img, cv2.COLOR_BGR2RGB)
 
-    rgb = cv2.cvtColor(rotate_img, cv2.COLOR_BGR2RGB)
-    roImg = Image.fromarray(rgb)
-    roImg = ImageTk.PhotoImage(roImg)
+    # Show Image
+    showImg(rgbImg, frame)
 
-    tk.Label(frame, image=roImg).grid(row=0,column=0)
+def checkFilterState(img):
+    global G_filter_state
+
+    if (G_filter_state == 'normal'):
+        result = img
+    elif (G_filter_state == 'red_filter'):
+        result = red_filter_method(img)
+    elif (G_filter_state == 'invert'):
+        result = invert_method(img)
+    elif (G_filter_state == 'sepia'):
+        result = sepia_method(img)
+    elif (G_filter_state == 'edge'):
+        result = edge_method(img)
+
+    return result
 
 #Fucntion about All Filter
 #*******************************************************************
-def red_filter(frame, checkRotation = True):
-    global filePath, red_filter_img, G_filter_state
 
-    #read the image
-    img = cv2.imread(filePath)
+def originImg(img, frame):
+    global G_filter_state
+
+    # resize img
+    resize_img = resizeImg(img)
+    # cal rotation
+    roImg = calRotation(resize_img)
+    # show Image
+    showImg(roImg, frame)
+    # set global filter State
+    G_filter_state = 'normal'
+
+def red_filter(img, frame):
+    global G_filter_state
+
+    # filter image
+    added_img =  red_filter_method(img)
+
+    # call Rotation 
+    roImg = calRotation(added_img)
+
+    bgrImg = cv2.cvtColor(roImg, cv2.COLOR_BGR2RGB)
+    showImg(bgrImg, frame)
+
+    # Set filter state to Global State
+    G_filter_state = 'red_filter'
+
+def red_filter_method(img):
+
     #convert the BGR image to HSV colour space
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     #obtain the grayscale image of the original image
@@ -148,48 +222,44 @@ def red_filter(frame, checkRotation = True):
     #add the foreground and the background
     added_img = cv2.add(res, background)
 
-    # call Rotation 
-    if (checkRotation == True):
-        roImg = calRotation(added_img)
+    return added_img
 
-    cv2.imshow('', roImg)
+def invert(img, frame):
+    global G_filter_state
 
-    bgr = cv2.cvtColor(roImg, cv2.COLOR_BGR2RGB)
-    red_filter_img = Image.fromarray(bgr)
-    red_filter_img = ImageTk.PhotoImage(red_filter_img) 
-
-    #Displays images as specified position.
-    tk.Label(frame, image=red_filter_img).grid(row=0,column=0)
-
-    # Set filter state to Global State
-    G_filter_state = 'red_filter'
-
-def invert(frame, checkRotation = True):
-    global filePath, invert_img, G_filter_state
-
-    img = cv2.imread(filePath)
-    img_gray   = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    invert_img = cv2.bitwise_not(img_gray)
+    # filter image
+    invert_img = invert_method(img)
     
     # call Rotation 
-    if (checkRotation == True):
-        roImg = calRotation(invert_img)
+    roImg = calRotation(invert_img)
 
-    cv2.imshow('', roImg)
-
-    invert_img = Image.fromarray(roImg)
-    invert_img = ImageTk.PhotoImage(invert_img)
-
-    #Displays images as specified position.
-    tk.Label(frame, image=invert_img).grid(row=0,column=0)
+    showImg(roImg, frame)
 
     # Set filter state to Global State
     G_filter_state = 'invert'
 
-def sepia(frame, checkRotation = True):
-    global filePath, sepia_img, G_filter_state
+def invert_method(img):
+    img_gray   = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    invert_img = cv2.bitwise_not(img_gray)
 
-    img  = cv2.imread(filePath)
+    return invert_img
+
+def sepia(img, frame):
+    global G_filter_state
+
+    # filter image
+    sepia_img = sepia_method(img)
+
+    # call Rotation 
+    roImg = calRotation(sepia_img)
+
+    roImg = cv2.cvtColor(roImg, cv2.COLOR_BGR2RGB)
+    showImg(roImg, frame)
+
+    # Set filter state to Global State
+    G_filter_state = 'sepia'
+
+def sepia_method(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     normalized_gray = np.array(gray, np.float32)/255
     
@@ -205,44 +275,28 @@ def sepia(frame, checkRotation = True):
     sepia[:,:,2] *= normalized_gray #R
     
     sepia_img = np.array(sepia, dtype=np.uint8)
-    sepia_img = cv2.cvtColor(sepia_img, cv2.COLOR_BGR2RGB)
+
+    return sepia_img
+
+def edge(img, frame):
+    global edge_img, G_filter_state
+
+    edge_img = edge_method(img)
 
     # call Rotation 
-    if (checkRotation == True):
-        roImg = calRotation(sepia_img)
+    roImg = calRotation(edge_img)
 
-    cv2.imshow('', roImg)
-
-    sepia_img = Image.fromarray(roImg)
-    sepia_img = ImageTk.PhotoImage(sepia_img)
-
-    tk.Label(frame, image=sepia_img).grid(row=0,column=0)
+    showImg(roImg, frame)
 
     # Set filter state to Global State
-    G_filter_state = 'sepia'
+    G_filter_state = 'edge'
 
-def edge(frame, checkRotation = True):
-    global filePath, edge_img, G_filter_state
-    
-    img = cv2.imread(filePath)
+def edge_method(img):
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edge_img = cv2.Canny(gray, 50, 100)
 
-    # call Rotation 
-    if (checkRotation == True):
-        roImg = calRotation(edge_img)
-
-    cv2.imshow('', roImg)
-
-    edge_img = Image.fromarray(roImg)
-    edge_img = ImageTk.PhotoImage(edge_img)
-
-    #Displays images as specified position.
-    tk.Label(frame, image=edge_img).grid(row=0,column=0)
-
-    # Set filter state to Global State
-    G_filter_state = 'edge'
+    return edge_img
 
 def calRotation(image):
     global G_rotation_angle
@@ -261,39 +315,51 @@ def calRotation(image):
 
     return img
 
-# def calFilterState(image):
-#     global G_filter_state
+# Save Image method
+def saveImg():
 
-#     if (G_filter_state == 'red_filter'):
-#         red_filter(image)
+    global state_img, filePath, G_filter_state
+    
+    FILE = Path(__file__).resolve()
 
+    # Get string file path
+    img_name = filePath.split('/')
+    img_name = img_name[-1].split('.')
 
-#*******************************************************************
+    # Create New save Img name
+    img_name = img_name[0]
+
+    if (G_filter_state != 'normal'):
+        img_name += f'_{G_filter_state}'
+
+    # Save image to spacific path (need to cvt bgr to rgb)
+    state_img_rgb = cv2.cvtColor(state_img, cv2.COLOR_BGR2RGB)
+    cv2.imwrite(f'{FILE.parent}\save_image\{img_name}.jpg', state_img_rgb) 
+
+    messagebox.showinfo("Success", "Save Image.")
 
 #Main 
 #*********************************************************
 
 #Create GUI Program
-app_name = 'Image Processing'
+app_name = 'Image Filter Program'
 
 #Page root
 app_root = tk.Tk()
 app_root.title(app_name)
-app_root.geometry("500x200")
+app_root.geometry("500x250")
 
 #Create Frame
 first_frame  = tk.Frame(app_root)
 first_frame.pack() #Center 
 
-#second_frame = tk.Frame(app_root)
-#second_frame.pack()
-#third_frme   = tk.Frame(app_root)
-#third_frme.pack()
-
 #Create Button
-take_pic_button = tk.Button(first_frame, text = 'Take a photo').grid(row=0,column=1, pady=10)
-choose_button   = tk.Button(first_frame, text = 'Choose image',command = choose_img)   .grid(row=1,column=1, pady=10)
-show_button     = tk.Button(first_frame, text = 'Show image',  command = image_console).grid(row=3,column=1, pady=10)
+# take_pic_button = tk.Button(first_frame, text = 'Take a photo').grid(row=0,column=1, pady=10)
+
+tk.Label(first_frame, text = 'Image Filter Program', font=("Arial", 25)).grid(row=1,column=1, pady=15)
+
+choose_button   = tk.Button(first_frame, text = 'Choose image',command = choose_img)   .grid(row=3,column=1, pady=10)
+show_button     = tk.Button(first_frame, text = 'Show image',  command = image_console).grid(row=5,column=1, pady=10)
 
 app_root.mainloop()
 #*********************************************************
