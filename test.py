@@ -1,39 +1,29 @@
-# import tkinter as tk
-# from tkinter import filedialog
-# from tkinter import messagebox
-# from pathlib import Path
-
-# import cv2
-# from PIL import ImageTk,Image
-
-
-# ws = tk.Tk()
-# ws.title('PythonGuides')
-
-
-# img = ImageTk.PhotoImage(file="C:/Users/pasaw/Desktop/Code Project/Python/Digital image/Project/index.jpg")
-# tk.Label(
-#     ws,
-#     image=img
-# ).pack()
-
-# ws.mainloop()
-
+import tkinter as tk
 from tkinter import *
-from PIL import Image, ImageTk
 
-# Create a Tkinter window
-window = Tk()
+from pathlib import Path
 
-# Open the image using Pillow
-image = Image.open("C:/Users/pasaw/Desktop/Code Project/Python/Digital image/Project/index.jpg")
+import cv2
+import numpy as np
 
-# Create a Tkinter PhotoImage from the Pillow Image
-photo = ImageTk.PhotoImage(image)
+from PIL import ImageTk,Image
 
-# Create a label in the window and add the PhotoImage to it
-label = Label(window, image=photo)
+root = tk.Tk()
+
+label = tk.Label(root, text="Hello, World!")
 label.pack()
 
-# Run the Tkinter event loop
-window.mainloop()
+# Function to delete the label
+def delete_label():
+    label.destroy()
+
+#Show Original Image 
+    img   = Image.open('E:\Git-hab\Image_Processing_GUI\ohm1.jpg') #imread
+    photo = ImageTk.PhotoImage(img) #Convert imager to Tk
+    tk.Label(photo_frame, image=photo).grid(row=0,column=0)
+    
+# Create a button to delete the label
+delete_button = tk.Button(root, text="Delete Label", command=delete_label)
+delete_button.pack()
+
+root.mainloop()
