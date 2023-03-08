@@ -10,8 +10,7 @@ import numpy as np
 from PIL import ImageTk,Image
 
 
-global filePath
-global G_sepia_img, G_edge_image
+global filePath, G_rotation_angle, G_filter_state
 
 filePath = ''
 
@@ -26,7 +25,7 @@ def choose_img():
     path_label = tk.Label(first_frame,text='Path: ' + filePath).grid(row=2,column=1, pady=10)
    
 def image_console():
-    global G_rotate_img, filePath , img_onshow
+    global G_rotation_angle, filePath , img_onshow, G_filter_state
 
     if not filePath:
         messagebox.showwarning("Error", "No image selected!")
@@ -65,30 +64,65 @@ def image_console():
     #btn = tk.Button(button_frame, text="Reset",command=lambda: ).grid(row=0, column=6, padx=5)
 
 
-    # Set Rotage Image to Global Stage
-    G_rotate_img = cv2.cvtColor(cv2.imread(filePath), cv2.COLOR_BGR2RGB)
+    # Set Rotage Image to Global State
+    G_rotation_angle = 0
+    # Set filter state to Global State
+    G_filter_state = 'normal'
+
     edit_img.mainloop()
     #************************************************************************************
 
 def rotate_img(frame, isCounterClockwise):
   
-    global roImg, G_rotate_img
+    global G_rotation_angle, filePath
     
-    if isCounterClockwise == True:
-        G_rotate_img = cv2.rotate(G_rotate_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    else:
-        G_rotate_img = cv2.rotate(G_rotate_img, cv2.ROTATE_90_CLOCKWISE)
-        
+    #read the image
+    rotate_img = cv2.imread(filePath)
 
-    roImg = Image.fromarray(G_rotate_img)
+    if isCounterClockwise == True:
+        if G_rotation_angle == 0:
+            rotate_img = cv2.rotate(rotate_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            G_rotation_angle = 270
+
+        elif G_rotation_angle == 270:
+            rotate_img = cv2.rotate(rotate_img, cv2.ROTATE_180)
+            G_rotation_angle = 180
+
+        elif G_rotation_angle == 180:
+            rotate_img = cv2.rotate(rotate_img, cv2.ROTATE_90_CLOCKWISE)
+            G_rotation_angle = 90
+
+        elif G_rotation_angle == 90:
+            G_rotation_angle = 0
+
+    else:
+        if G_rotation_angle == 0:
+            rotate_img = cv2.rotate(rotate_img, cv2.ROTATE_90_CLOCKWISE)
+            G_rotation_angle = 90
+
+        elif G_rotation_angle == 90:
+            rotate_img = cv2.rotate(rotate_img, cv2.ROTATE_180)
+            G_rotation_angle = 180
+
+        elif G_rotation_angle == 180:
+            rotate_img = cv2.rotate(rotate_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            G_rotation_angle = 270
+
+        elif G_rotation_angle == 270:
+            G_rotation_angle = 0
+    
+    cv2.imshow('', rotate_img)
+
+    rgb = cv2.cvtColor(rotate_img, cv2.COLOR_BGR2RGB)
+    roImg = Image.fromarray(rgb)
     roImg = ImageTk.PhotoImage(roImg)
 
     tk.Label(frame, image=roImg).grid(row=0,column=0)
 
 #Fucntion about All Filter
 #*******************************************************************
-def red_filter(frame):
-    global filePath, red_filter_img
+def red_filter(frame, checkRotation = True):
+    global filePath, red_filter_img, G_filter_state
 
     #read the image
     img = cv2.imread(filePath)
@@ -114,28 +148,46 @@ def red_filter(frame):
     #add the foreground and the background
     added_img = cv2.add(res, background)
 
-    bgr = cv2.cvtColor(added_img, cv2.COLOR_BGR2RGB)
+    # call Rotation 
+    if (checkRotation == True):
+        roImg = calRotation(added_img)
+
+    cv2.imshow('', roImg)
+
+    bgr = cv2.cvtColor(roImg, cv2.COLOR_BGR2RGB)
     red_filter_img = Image.fromarray(bgr)
     red_filter_img = ImageTk.PhotoImage(red_filter_img) 
 
     #Displays images as specified position.
     tk.Label(frame, image=red_filter_img).grid(row=0,column=0)
 
-def invert(frame):
-    global filePath, invert_img
+    # Set filter state to Global State
+    G_filter_state = 'red_filter'
+
+def invert(frame, checkRotation = True):
+    global filePath, invert_img, G_filter_state
 
     img = cv2.imread(filePath)
     img_gray   = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     invert_img = cv2.bitwise_not(img_gray)
     
-    invert_img = Image.fromarray(invert_img)
+    # call Rotation 
+    if (checkRotation == True):
+        roImg = calRotation(invert_img)
+
+    cv2.imshow('', roImg)
+
+    invert_img = Image.fromarray(roImg)
     invert_img = ImageTk.PhotoImage(invert_img)
 
     #Displays images as specified position.
     tk.Label(frame, image=invert_img).grid(row=0,column=0)
 
-def sepia(frame):
-    global filePath, sepia_img
+    # Set filter state to Global State
+    G_filter_state = 'invert'
+
+def sepia(frame, checkRotation = True):
+    global filePath, sepia_img, G_filter_state
 
     img  = cv2.imread(filePath)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -155,24 +207,67 @@ def sepia(frame):
     sepia_img = np.array(sepia, dtype=np.uint8)
     sepia_img = cv2.cvtColor(sepia_img, cv2.COLOR_BGR2RGB)
 
-    sepia_img = Image.fromarray(sepia_img)
+    # call Rotation 
+    if (checkRotation == True):
+        roImg = calRotation(sepia_img)
+
+    cv2.imshow('', roImg)
+
+    sepia_img = Image.fromarray(roImg)
     sepia_img = ImageTk.PhotoImage(sepia_img)
 
     tk.Label(frame, image=sepia_img).grid(row=0,column=0)
 
-def edge(frame):
-    global filePath, edge_img
+    # Set filter state to Global State
+    G_filter_state = 'sepia'
+
+def edge(frame, checkRotation = True):
+    global filePath, edge_img, G_filter_state
     
     img = cv2.imread(filePath)
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edge_img = cv2.Canny(gray, 50, 100)
 
-    edge_img = Image.fromarray(edge_img)
+    # call Rotation 
+    if (checkRotation == True):
+        roImg = calRotation(edge_img)
+
+    cv2.imshow('', roImg)
+
+    edge_img = Image.fromarray(roImg)
     edge_img = ImageTk.PhotoImage(edge_img)
 
     #Displays images as specified position.
     tk.Label(frame, image=edge_img).grid(row=0,column=0)
+
+    # Set filter state to Global State
+    G_filter_state = 'edge'
+
+def calRotation(image):
+    global G_rotation_angle
+
+    if G_rotation_angle == 0:
+        img = image
+
+    elif G_rotation_angle == 90:
+        img = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+
+    elif G_rotation_angle == 180:
+        img = cv2.rotate(image, cv2.ROTATE_180)
+
+    elif G_rotation_angle == 270:
+        img = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+    return img
+
+# def calFilterState(image):
+#     global G_filter_state
+
+#     if (G_filter_state == 'red_filter'):
+#         red_filter(image)
+
+
 #*******************************************************************
 
 #Main 
